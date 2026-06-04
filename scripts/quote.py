@@ -65,8 +65,14 @@ def _rt_sina(code):
     fields = parts[1].split(",")
     if len(fields) < 4:
         return None
-    return {"code": code, "price": float(fields[3]),
-            "prev_close": float(fields[2]), "source": "sina"}
+    try:
+        price = float(fields[3])
+        prev_close = float(fields[2])
+    except ValueError:
+        return None  # 停牌或字段异常（如 "--"），视为该源失败，交由兜底
+    if price <= 0:
+        return None  # 停牌时 sina 返回 0 价，视为无效
+    return {"code": code, "price": price, "prev_close": prev_close, "source": "sina"}
 
 
 def get_realtime(code, cfg):
