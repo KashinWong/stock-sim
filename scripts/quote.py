@@ -1,0 +1,141 @@
+"""三源兜底行情 CLI：realtime / daily / index。
+源优先级：akshare -> tushare -> 新浪 HTTP。任一成功即返回。"""
+import sys, os, json, argparse
+
+
+class QuoteError(Exception):
+    pass
+
+
+def try_sources(sources, *args):
+    """按序尝试各源，返回首个非空结果；全失败抛 QuoteError。"""
+    errors = []
+    for src in sources:
+        try:
+            r = src(*args)
+            if r:
+                return r
+        except Exception as e:  # 容错：记下错误继续下一个源
+            errors.append("%s: %s" % (getattr(src, "__name__", "src"), e))
+    raise QuoteError("所有行情源失败：%s" % "; ".join(errors))
+
+
+def _load_config():
+    cfg_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.json")
+    if not os.path.exists(cfg_path):
+        cfg_path = os.path.join(os.path.dirname(__file__), "..", "config", "config.example.json")
+    with open(cfg_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+# ---------- 实时价：三源 ----------
+def _rt_akshare(code):
+    import akshare as ak
+    df = ak.stock_zh_a_spot_em()
+    row = df[df["代码"] == code]
+    if row.empty:
+        return None
+    return {"code": code, "price": float(row.iloc[0]["最新价"]),
+            "prev_close": float(row.iloc[0]["昨收"]), "source": "akshare"}
+
+
+def _rt_tushare(code, token):
+    if not token:
+        return None
+    import tushare as ts
+    ts.set_token(token)
+    pro = ts.pro_api()
+    ts_code = code + (".SH" if code.startswith("6") else ".SZ")
+    df = pro.daily(ts_code=ts_code, limit=1)
+    if df is None or df.empty:
+        return None
+    return {"code": code, "price": float(df.iloc[0]["close"]),
+            "prev_close": float(df.iloc[0]["pre_close"]), "source": "tushare"}
+
+
+def _rt_sina(code):
+    import requests
+    prefix = "sh" if code.startswith("6") else "sz"
+    url = "https://hq.sinajs.cn/list=%s%s" % (prefix, code)
+    resp = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
+    resp.encoding = "gbk"
+    parts = resp.text.split('"')
+    if len(parts) < 2:
+        return None
+    fields = parts[1].split(",")
+    if len(fields) < 4:
+        return None
+    return {"code": code, "price": float(fields[3]),
+            "prev_close": float(fields[2]), "source": "sina"}
+
+
+def get_realtime(code, cfg):
+    token = cfg.get("tushare_token", "")
+    return try_sources([
+        _rt_akshare,
+        lambda c: _rt_tushare(c, token),
+        _rt_sina,
+    ], code)
+
+
+# ---------- 日线 ----------
+def _daily_akshare(code, days):
+    import akshare as ak
+    df = ak.stock_zh_a_hist(symbol=code, period="daily", adjust="qfq")
+    if df is None or df.empty:
+        return None
+    df = df.tail(days)
+    return {"code": code, "source": "akshare", "bars": [
+        {"date": str(r["日期"]), "open": float(r["开盘"]), "high": float(r["最高"]),
+         "low": float(r["最低"]), "close": float(r["收盘"]), "volume": float(r["成交量"])}
+        for _, r in df.iterrows()
+    ]}
+
+
+def get_daily(code, days, cfg):
+    return try_sources([lambda c: _daily_akshare(c, days)], code)
+
+
+# ---------- 指数（基准） ----------
+def _index_akshare(code):
+    import akshare as ak
+    df = ak.stock_zh_index_daily(symbol=("sh" + code if code.startswith("0") else code))
+    if df is None or df.empty:
+        return None
+    last = df.iloc[-1]
+    return {"code": code, "close": float(last["close"]), "date": str(last["date"]),
+            "source": "akshare"}
+
+
+def get_index(code, cfg):
+    return try_sources([_index_akshare], code)
+
+
+def main():
+    cfg = _load_config()
+    parser = argparse.ArgumentParser(description="stock-sim 行情（三源兜底）")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p_rt = sub.add_parser("realtime")
+    p_rt.add_argument("codes", nargs="+")
+    p_d = sub.add_parser("daily")
+    p_d.add_argument("code"); p_d.add_argument("--days", type=int, default=60)
+    p_i = sub.add_parser("index")
+    p_i.add_argument("code", default="000300", nargs="?")
+    args = parser.parse_args()
+
+    if args.cmd == "realtime":
+        out = {}
+        for code in args.codes:
+            try:
+                out[code] = get_realtime(code, cfg)
+            except QuoteError as e:
+                out[code] = {"error": str(e)}
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    elif args.cmd == "daily":
+        print(json.dumps(get_daily(args.code, args.days, cfg), ensure_ascii=False, indent=2))
+    elif args.cmd == "index":
+        print(json.dumps(get_index(args.code, cfg), ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
