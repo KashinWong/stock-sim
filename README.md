@@ -17,10 +17,12 @@
    编辑 `config/config.json`，填入 `tushare_token`（在 https://tushare.pro 注册免费获取；
    留空则跳过 Tushare，仅用 AKShare + 新浪兜底）。其余字段可用默认值。
 
-3. 初始化账户：
+3. 初始化账户（首次部署）：
    ```bash
-   python scripts/account.py init
+   python scripts/account.py init --cash 1000000
    ```
+   交由 agent 执行场景 0「开户初始化」会更完整——它会对话采集风险偏好、关注板块、
+   运行节奏并写入 `profile/profile.json`，同时据画像微调初始策略。详见 `SKILL.md`。
 
 4. 验证行情通畅：
    ```bash
@@ -33,6 +35,7 @@
 - `account/account.json`：账户唯一真相源（现金/持仓/盈亏）
 - `account/trades.jsonl`：逐笔成交明细（只追加）
 - `strategy/strategy.md`：自然语言策略文档（agent 自迭代）
+- `profile/profile.json`：投资画像（风险偏好/关注板块/运行节奏，初始化生成，私有不入库）
 - `journal/`：每日报告、复盘、操作总账
 
 详细工作流见 `SKILL.md`。
