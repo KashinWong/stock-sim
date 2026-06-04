@@ -1,0 +1,16 @@
+{
+  "initial_cash": 1000000,
+  "tushare_token": "",
+  "fees": {
+    "commission_rate": 0.00025,
+    "commission_min": 5.0,
+    "stamp_tax_rate": 0.0005,
+    "transfer_fee_rate": 0.00001
+  },
+  "benchmark_index": "000300",
+  "price_limit": {
+    "main": 0.10,
+    "st": 0.05,
+    "star": 0.20
+  }
+}

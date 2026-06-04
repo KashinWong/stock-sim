@@ -11,3 +11,6 @@ journal/
 
 # OS
 .DS_Store
+
+# 本地配置（覆盖示例配置）
+config/config.json
