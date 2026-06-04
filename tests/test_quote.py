@@ -151,3 +151,52 @@ def test_daily_tushare_sh_sz_code_mapping(monkeypatch):
 def test_daily_tushare_returns_none_without_token():
     """无 token 时应返回 None。"""
     assert q._daily_tushare("600519", 60, "") is None
+
+
+def test_board_lists_industries(monkeypatch):
+    """无板块名时列出全部行业板块。"""
+    import pandas as pd
+    df = pd.DataFrame([
+        {"板块名称": "白酒", "板块代码": "BK0477"},
+        {"板块名称": "半导体", "板块代码": "BK1036"},
+    ])
+    fake_ak = types.SimpleNamespace(stock_board_industry_name_em=lambda: df)
+    monkeypatch.setitem(sys.modules, "akshare", fake_ak)
+    result = q._board_akshare(None)
+    assert result["type"] == "list"
+    assert result["source"] == "akshare"
+    assert {"name": "白酒", "code": "BK0477"} in result["boards"]
+    assert len(result["boards"]) == 2
+
+
+def test_board_lists_constituents(monkeypatch):
+    """给定板块名时列出成分股代码。"""
+    import pandas as pd
+    df = pd.DataFrame([
+        {"代码": "600519", "名称": "贵州茅台"},
+        {"代码": "000858", "名称": "五粮液"},
+    ])
+    captured = {}
+    def cons(symbol):
+        captured["symbol"] = symbol
+        return df
+    fake_ak = types.SimpleNamespace(stock_board_industry_cons_em=cons)
+    monkeypatch.setitem(sys.modules, "akshare", fake_ak)
+    result = q._board_akshare("白酒")
+    assert captured["symbol"] == "白酒"
+    assert result["type"] == "cons"
+    assert result["board"] == "白酒"
+    assert {"code": "600519", "name": "贵州茅台"} in result["stocks"]
+
+
+def test_board_all_sources_fail_raises(monkeypatch):
+    """单源 akshare 不可用时应抛 QuoteError（交由 CLI 降级提示）。"""
+    def boom():
+        raise RuntimeError("akshare 未安装")
+    fake_ak = types.SimpleNamespace(stock_board_industry_name_em=boom)
+    monkeypatch.setitem(sys.modules, "akshare", fake_ak)
+    try:
+        q.get_board(None, {})
+        assert False, "应抛 QuoteError"
+    except q.QuoteError:
+        pass

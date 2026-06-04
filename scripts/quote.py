@@ -171,6 +171,31 @@ def get_index(code, cfg):
     return try_sources([_index_akshare, _index_sina], code)
 
 
+# ---------- 板块成分（选股候选池，单源 akshare，失败可降级） ----------
+def _board_akshare(name):
+    """name 为 None 列出行业板块；否则列出该板块成分股。仅 akshare 一源。"""
+    import akshare as ak
+    if name is None:
+        df = ak.stock_board_industry_name_em()
+        if df is None or df.empty:
+            return None
+        return {"type": "list", "source": "akshare", "boards": [
+            {"name": str(r["板块名称"]), "code": str(r["板块代码"])}
+            for _, r in df.iterrows()
+        ]}
+    df = ak.stock_board_industry_cons_em(symbol=name)
+    if df is None or df.empty:
+        return None
+    return {"type": "cons", "board": name, "source": "akshare", "stocks": [
+        {"code": str(r["代码"]), "name": str(r["名称"])}
+        for _, r in df.iterrows()
+    ]}
+
+
+def get_board(name, cfg):
+    return try_sources([_board_akshare], name)
+
+
 def main():
     cfg = _load_config()
     parser = argparse.ArgumentParser(description="stock-sim 行情（三源兜底）")
@@ -181,6 +206,9 @@ def main():
     p_d.add_argument("code"); p_d.add_argument("--days", type=int, default=60)
     p_i = sub.add_parser("index")
     p_i.add_argument("code", default="000300", nargs="?")
+    p_b = sub.add_parser("board")
+    p_b.add_argument("name", nargs="?", default=None,
+                     help="板块名称（如「白酒」）；省略则列出全部行业板块")
     args = parser.parse_args()
 
     if args.cmd == "realtime":
@@ -195,6 +223,13 @@ def main():
         print(json.dumps(get_daily(args.code, args.days, cfg), ensure_ascii=False, indent=2))
     elif args.cmd == "index":
         print(json.dumps(get_index(args.code, cfg), ensure_ascii=False, indent=2))
+    elif args.cmd == "board":
+        try:
+            print(json.dumps(get_board(args.name, cfg), ensure_ascii=False, indent=2))
+        except QuoteError as e:
+            print(json.dumps({"error": str(e),
+                              "hint": "板块成分仅 akshare 单源，失败时可由 agent 凭知识列出候选代码"},
+                             ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

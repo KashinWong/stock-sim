@@ -3,10 +3,10 @@
 ## 1. 单元测试
 
 ```bash
-python3 -m pytest tests/ -v   # 期望全部通过（30 项）
+python3 -m pytest tests/ -v   # 期望全部通过（33 项）
 ```
 
-实际结果：**30 passed in 0.43s** — 全部通过。
+实际结果：**33 passed** — 全部通过。
 
 ## 2. 账户离线冒烟（不依赖网络）
 
@@ -40,12 +40,15 @@ python3 scripts/account.py show
 ```bash
 python3 scripts/quote.py realtime 600519   # 期望返回 price/source
 python3 scripts/quote.py index 000300      # 期望返回基准点位
+python3 scripts/quote.py board             # 期望列出行业板块（选股候选池来源）
+python3 scripts/quote.py board 白酒        # 期望列出该板块成分股代码
 ```
 
 本机观察结果：
 
 - **realtime 600519**：akshare 首先尝试失败（可能超时或不可用），自动 fallback 到新浪源，成功返回 `"price": 1268.0, "source": "sina"`。三源兜底链路验证通过。
 - **index 000300**：仅支持 akshare 一个数据源（无 sina 指数兜底），本机未安装 akshare，报 `QuoteError: 所有行情源失败：_index_akshare: No module named 'akshare'`。属预期行为——证明兜底耗尽正确报错。**注意：如需 index 命令可用，需安装 `akshare`。**
+- **board（板块成分）**：选股候选池来源，仅 akshare 单源（无兜底）。akshare 不可用时返回 `{"error":..., "hint": "...可由 agent 凭知识列出候选代码"}`，由 agent 降级处理，不阻断交易主链路。
 
 ## 4. 端到端（场景 A）
 

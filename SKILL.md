@@ -23,6 +23,8 @@ description: "模拟炒股 agent：用虚拟 A 股账户自主选股交易、每
 python scripts/quote.py realtime 600519 000001    # 批量实时价
 python scripts/quote.py daily 600519 --days 60     # 日线
 python scripts/quote.py index 000300               # 沪深300（基准）
+python scripts/quote.py board                       # 列出全部行业板块
+python scripts/quote.py board 白酒                  # 列出某板块成分股（选股候选池）
 
 # 账户
 python scripts/account.py init --cash 1000000       # 开户（初始化，仅首次）
@@ -77,7 +79,10 @@ python scripts/account.py mark --prices '{"600519":1750.0}'   # 估值快照
 2. **刷新估值**：读 account.json 持仓 → `quote.py realtime <持仓代码...>` 取价 →
    `account.py mark --prices {...}` 得到当前总资产。同时 `quote.py index 000300` 取基准。
 3. **读策略**：读 `strategy/strategy.md` 的当前选股逻辑。
-4. **选股**：按策略扫描候选（用 `quote.py daily` 验证均线/量能信号），输出选股思路。
+4. **选股**：先取候选池——读 `profile/profile.json` 的 `focus_sectors`，对每个关注板块用
+   `quote.py board <板块名>` 取成分股代码（留空则按策略全市场选、或由 agent 凭知识列候选）；
+   再按策略用 `quote.py daily` 验证均线/量能信号，输出选股思路。
+   注：board 仅 akshare 单源，失败时退回 agent 自行列候选，不阻断交易。
 5. **下单**：对买卖决策调 `account.py buy/sell`，`--reason` 写清理由。遵守 A 股规则
    （T+1、100 股整手、单只 ≤20% 总资产、最多 5 只持仓）。
 6. **写报告**：生成 `journal/YYYY-MM-DD-daily.md`，包含：
