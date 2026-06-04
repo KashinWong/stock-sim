@@ -143,7 +143,9 @@ def main():
     acct_path, trades_path = _paths()
     parser = argparse.ArgumentParser(description="stock-sim 账户引擎")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("init")
+    p_init = sub.add_parser("init")
+    p_init.add_argument("--cash", type=float, default=None,
+                        help="初始本金；缺省回退 config.json 的 initial_cash")
     sub.add_parser("show")
     sub.add_parser("settle")
     p_buy = sub.add_parser("buy")
@@ -158,7 +160,8 @@ def main():
 
     e = Account(acct_path, trades_path, fees=cfg["fees"])
     if args.cmd == "init":
-        e.init(initial_cash=cfg["initial_cash"])
+        cash = args.cash if args.cash is not None else cfg["initial_cash"]
+        e.init(initial_cash=cash)
         print(json.dumps({"ok": True, "cash": e.state["cash"]}, ensure_ascii=False))
     elif args.cmd == "show":
         print(json.dumps(e.state, ensure_ascii=False, indent=2))

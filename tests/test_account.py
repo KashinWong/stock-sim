@@ -121,6 +121,17 @@ def test_mark_computes_market_value():
         shutil.rmtree(tmp)
 
 
+def test_init_with_explicit_cash_overrides_default():
+    tmp = tempfile.mkdtemp()
+    try:
+        e = make_engine(tmp)
+        e.init(initial_cash=500000, date="2026-06-04")
+        assert e.state["cash"] == 500000
+        assert e.state["initial_assets"] == 500000
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_init_records_initial_assets_anchor():
     """init 时应记录初始资产锚点，供后续 return% 计算使用。"""
     tmp = tempfile.mkdtemp()
