@@ -3,10 +3,10 @@
 ## 1. 单元测试
 
 ```bash
-python3 -m pytest tests/ -v   # 期望全部通过（28 项）
+python3 -m pytest tests/ -v   # 期望全部通过（30 项）
 ```
 
-实际结果：**28 passed in 0.49s** — 全部通过。
+实际结果：**30 passed in 0.43s** — 全部通过。
 
 ## 2. 账户离线冒烟（不依赖网络）
 
@@ -25,6 +25,7 @@ python3 scripts/account.py show
 | 步骤 | 预期 | 实际观察值 |
 |------|------|-----------|
 | `init` 后现金 | 1,000,000 | `1000000.0` |
+| `init --cash 500000` 后现金/初始资产 | 500,000 | `cash=500000.0, initial_assets=500000.0` |
 | 买入成本 | 170,000 + 佣金 + 过户费 | `amount=170000.0, commission=42.5, transfer_fee=1.7, total_cost=170044.2` |
 | `settle` 解冻 | T+1 可卖 | `T+1 已解冻` |
 | 卖出净收入 | 175,000 − 费用 | `amount=175000.0, commission=43.75, transfer_fee=1.75, stamp_tax=87.5, net_proceeds=174867.0` |
