@@ -1,4 +1,6 @@
-import sys, os, json, tempfile, shutil
+import sys, os, json, tempfile, shutil, subprocess
+
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import account as acc
 
@@ -128,6 +130,35 @@ def test_init_with_explicit_cash_overrides_default():
         e.init(initial_cash=500000, date="2026-06-04")
         assert e.state["cash"] == 500000
         assert e.state["initial_assets"] == 500000
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_cli_init_cash_and_fallback():
+    """集成测试：通过 CLI 子进程覆盖 --cash 和回退 config 两条路径。"""
+    repo_root = os.path.join(os.path.dirname(__file__), "..")
+    tmp = tempfile.mkdtemp()
+    try:
+        workdir = os.path.join(tmp, "work")
+        shutil.copytree(repo_root, workdir, ignore=shutil.ignore_patterns(
+            "account", ".git", "__pycache__", "*.pyc", "tests"))
+        acct_dir = os.path.join(workdir, "account")
+        cli = [sys.executable, "scripts/account.py", "init"]
+
+        # --- 路径 1：显式 --cash ---
+        result = subprocess.run(cli + ["--cash", "500000"], cwd=workdir,
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        state = json.load(open(os.path.join(acct_dir, "account.json")))
+        assert state["cash"] == 500000.0
+
+        # --- 路径 2：无 --cash，回退 config.example.json initial_cash === 1_000_000 ---
+        if os.path.exists(os.path.join(acct_dir, "account.json")):
+            os.remove(os.path.join(acct_dir, "account.json"))
+        result = subprocess.run(cli, cwd=workdir, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        state = json.load(open(os.path.join(acct_dir, "account.json")))
+        assert state["cash"] == 1000000.0
     finally:
         shutil.rmtree(tmp)
 
