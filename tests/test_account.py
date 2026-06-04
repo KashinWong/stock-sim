@@ -87,7 +87,7 @@ def test_sell_adds_cash_and_realizes_pnl():
         e.settle(date="2026-06-05")
         e.sell("600519", qty=100, price=12.0, date="2026-06-05", reason="卖")
         assert "600519" not in e.state["positions"]
-        assert e.state["realized_pnl"] > 0
+        assert e.state["realized_pnl"] == 189.38
     finally:
         shutil.rmtree(tmp)
 

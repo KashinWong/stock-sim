@@ -171,7 +171,11 @@ def main():
         r = e.sell(args.code, args.qty, args.price, reason=args.reason)
         print(json.dumps({"ok": True, "proceeds": r}, ensure_ascii=False))
     elif args.cmd == "mark":
-        snap = e.mark(prices=json.loads(args.prices))
+        try:
+            prices = json.loads(args.prices)
+        except json.JSONDecodeError as ex:
+            parser.error("--prices 不是合法 JSON：%s" % ex)
+        snap = e.mark(prices=prices)
         print(json.dumps(snap, ensure_ascii=False, indent=2))
 
 
