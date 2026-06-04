@@ -25,11 +25,48 @@ python scripts/quote.py daily 600519 --days 60     # 日线
 python scripts/quote.py index 000300               # 沪深300（基准）
 
 # 账户
+python scripts/account.py init --cash 1000000       # 开户（初始化，仅首次）
 python scripts/account.py show                      # 查账
 python scripts/account.py settle                    # T+1 解冻（每个交易日开始调一次）
 python scripts/account.py buy 600519 100 --price 1700 --reason "趋势突破"
 python scripts/account.py sell 600519 100 --price 1750 --reason "止盈"
 python scripts/account.py mark --prices '{"600519":1750.0}'   # 估值快照
+```
+
+## 场景 0：开户初始化（首次使用）
+
+当用户说"初始化""开户""第一次用""建账"时，通过对话逐项采集初始信息（每项给默认值、可跳过）：
+
+1. **对话采集**：
+   - 初始本金（默认 1000000）
+   - 风险偏好：保守 / 稳健 / 激进（默认稳健）
+   - 关注板块·行业（可多个，留空=全市场）
+   - 运行频率 & 复盘周期（默认 每交易日 / 每周）
+   - tushare token（可留空，走 akshare→新浪兜底）
+2. **建账**：`python scripts/account.py init --cash <本金>`。
+3. **写画像**：把偏好信息按 schema 写入 `profile/profile.json`
+   （从 `profile/profile.example.json` 复制后填写，含 created_at/updated_at）。
+4. **写 token**（若提供）：`cp config/config.example.json config/config.json`（若尚无），
+   填入 `tushare_token`。
+5. **画像驱动策略**：依据风险偏好/关注板块微调 `strategy/strategy.md` 的 v1，
+   并在"策略演变记录"追加一行，理由写"初始化画像（风险偏好=X，关注=Y）"：
+   - 激进：可提高单只仓位上限、放宽量能阈值。
+   - 保守：降低单只仓位上限、提高现金保留。
+   - 关注板块：选股时优先扫描这些行业。
+6. **确认输出**：打印账户摘要（现金/初始本金）+ 画像摘要（风险偏好/关注板块/节奏）。
+
+### profile.json schema
+
+```json
+{
+  "risk_preference": "稳健",
+  "focus_sectors": ["白酒", "新能源"],
+  "run_frequency": "每交易日",
+  "review_cycle": "每周",
+  "notes": "",
+  "created_at": "2026-06-04",
+  "updated_at": "2026-06-04"
+}
 ```
 
 ## 场景 A：每日选股交易（收盘后）
