@@ -82,3 +82,28 @@ def test_sina_parses_normal_response():
         assert result["source"] == "sina"
     finally:
         builtins.__import__ = real_import
+
+
+def test_index_sina_parses_normal_response(monkeypatch):
+    """模拟 sina 指数响应，_index_sina 应返回 close 值 + source=sina。"""
+    fake_resp = types.SimpleNamespace(
+        text='var hq_str_sh000300="沪深300,4897.32,4938.81,4904.75,4938.78,4889.75,0,0,264808910,736143410003,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2026-06-04,15:35:31,00,";',
+        encoding="utf-8",
+    )
+    fake_requests = types.SimpleNamespace(get=lambda *a, **k: fake_resp)
+    monkeypatch.setitem(sys.modules, "requests", fake_requests)
+    result = q._index_sina("000300")
+    assert result is not None
+    assert result["close"] == 4904.75
+    assert result["source"] == "sina"
+
+
+def test_index_sina_returns_none_on_non_numeric(monkeypatch):
+    """sina 指数返回非当前点位（停牌 "--"），应返回 None。"""
+    fake_resp = types.SimpleNamespace(
+        text='var hq_str_sh000300="沪深300,--,--,",',
+        encoding="utf-8",
+    )
+    fake_requests = types.SimpleNamespace(get=lambda *a, **k: fake_resp)
+    monkeypatch.setitem(sys.modules, "requests", fake_requests)
+    assert q._index_sina("000300") is None

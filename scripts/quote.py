@@ -113,8 +113,35 @@ def _index_akshare(code):
             "source": "akshare"}
 
 
+def _index_sina(code):
+    """Sina HTTP fallback for index quotes."""
+    import requests
+    import time
+    prefix = "sh" if code.startswith("0") else "sz"
+    url = "https://hq.sinajs.cn/list=%s%s" % (prefix, code)
+    try:
+        resp = requests.get(url, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
+        resp.encoding = "gbk"
+    except Exception:
+        return None
+    parts = resp.text.split('"')
+    if len(parts) < 2:
+        return None
+    fields = parts[1].split(",")
+    if len(fields) < 4:
+        return None
+    try:
+        close = float(fields[3])
+    except ValueError:
+        return None  # non-numeric (停牌 etc.) → fall through
+    if close <= 0:
+        return None
+    return {"code": code, "close": close,
+            "date": time.strftime("%Y-%m-%d"), "source": "sina"}
+
+
 def get_index(code, cfg):
-    return try_sources([_index_akshare], code)
+    return try_sources([_index_akshare, _index_sina], code)
 
 
 def main():
