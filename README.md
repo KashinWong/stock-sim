@@ -36,3 +36,12 @@
 - `journal/`：每日报告、复盘、操作总账
 
 详细工作流见 `SKILL.md`。
+
+## 故障排查
+
+- **行情全部失败**：检查网络；akshare 偶发限频会自动 fallback 到新浪源；
+  Tushare 需有效 token 且有积分权限。
+- **akshare 接口报错**：`pip install -U akshare`，其接口随版本变动较快。
+- **account.json 损坏**：删除 `account/account.json` 后重新 `account.py init`
+  （注意会清空账户，trades.jsonl 保留历史）。
+- **Python 版本**：需 3.9+，代码未使用 3.10+ 语法。
