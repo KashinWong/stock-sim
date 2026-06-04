@@ -107,3 +107,47 @@ def test_index_sina_returns_none_on_non_numeric(monkeypatch):
     fake_requests = types.SimpleNamespace(get=lambda *a, **k: fake_resp)
     monkeypatch.setitem(sys.modules, "requests", fake_requests)
     assert q._index_sina("000300") is None
+
+
+def test_daily_tushare_parses_and_sorts_ascending(monkeypatch):
+    """tushare 日线返回降序，函数应将 bars 升序排列（最早在前）。"""
+    import pandas as pd
+    df = pd.DataFrame([
+        {"trade_date": "20260604", "open": 11.0, "high": 12.0, "low": 10.5, "close": 11.5, "vol": 2000.0},
+        {"trade_date": "20260603", "open": 10.0, "high": 10.8, "low": 9.9, "close": 10.5, "vol": 1500.0},
+    ])
+    class FakePro:
+        def daily(self, **kw):
+            return df
+    fake_ts = types.SimpleNamespace(set_token=lambda t: None, pro_api=lambda: FakePro())
+    monkeypatch.setitem(sys.modules, "tushare", fake_ts)
+    result = q._daily_tushare("600519", 60, "faketoken")
+    assert result["source"] == "tushare"
+    assert len(result["bars"]) == 2
+    assert result["bars"][0]["date"] == "2026-06-03"  # 升序：最早在前
+    assert result["bars"][1]["date"] == "2026-06-04"
+    assert result["bars"][1]["close"] == 11.5
+
+
+def test_daily_tushare_sh_sz_code_mapping(monkeypatch):
+    """沪市 6 开头 -> .SH, 深市 -> .SZ。"""
+    import pandas as pd
+
+    captured_codes = []
+    class FakePro:
+        def daily(self, **kw):
+            captured_codes.append(kw.get("ts_code"))
+            return pd.DataFrame()
+
+    fake_ts = types.SimpleNamespace(set_token=lambda t: None, pro_api=lambda: FakePro())
+    monkeypatch.setitem(sys.modules, "tushare", fake_ts)
+    q._daily_tushare("600519", 60, "token")
+    assert "600519.SH" in captured_codes
+    captured_codes.clear()
+    q._daily_tushare("000001", 60, "token")
+    assert "000001.SZ" in captured_codes
+
+
+def test_daily_tushare_returns_none_without_token():
+    """无 token 时应返回 None。"""
+    assert q._daily_tushare("600519", 60, "") is None

@@ -119,3 +119,14 @@ def test_mark_computes_market_value():
         assert abs(snap["total_assets"] - (998994.99 + 1200.0)) < 0.01
     finally:
         shutil.rmtree(tmp)
+
+
+def test_init_records_initial_assets_anchor():
+    """init 时应记录初始资产锚点，供后续 return% 计算使用。"""
+    tmp = tempfile.mkdtemp()
+    try:
+        e = make_engine(tmp)
+        e.init(initial_cash=1000000, date="2026-06-04")
+        assert e.state["initial_assets"] == 1000000.0
+    finally:
+        shutil.rmtree(tmp)

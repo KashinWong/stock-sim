@@ -51,6 +51,7 @@ class Account:
             "cash": float(initial_cash),
             "positions": {},
             "realized_pnl": 0.0,
+            "initial_assets": float(initial_cash),
             "created_at": date,
             "updated_at": date,
         }

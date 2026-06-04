@@ -3,10 +3,10 @@
 ## 1. 单元测试
 
 ```bash
-python3 -m pytest tests/ -v   # 期望全部通过（22 项）
+python3 -m pytest tests/ -v   # 期望全部通过（28 项）
 ```
 
-实际结果：**22 passed in 0.03s** — 全部通过。
+实际结果：**28 passed in 0.49s** — 全部通过。
 
 ## 2. 账户离线冒烟（不依赖网络）
 

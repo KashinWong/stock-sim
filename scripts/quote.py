@@ -98,8 +98,35 @@ def _daily_akshare(code, days):
     ]}
 
 
+def _daily_tushare(code, days, token):
+    if not token:
+        return None
+    import tushare as ts
+    ts.set_token(token)
+    pro = ts.pro_api()
+    ts_code = code + (".SH" if code.startswith("6") else ".SZ")
+    df = pro.daily(ts_code=ts_code, limit=days)
+    if df is None or df.empty:
+        return None
+    df = df.iloc[::-1]  # tushare returns descending; reverse to ascending
+    bars = []
+    for _, r in df.iterrows():
+        d = str(r["trade_date"])
+        bars.append({
+            "date": "%s-%s-%s" % (d[0:4], d[4:6], d[6:8]),
+            "open": float(r["open"]), "high": float(r["high"]),
+            "low": float(r["low"]), "close": float(r["close"]),
+            "volume": float(r["vol"]),
+        })
+    return {"code": code, "source": "tushare", "bars": bars}
+
+
 def get_daily(code, days, cfg):
-    return try_sources([lambda c: _daily_akshare(c, days)], code)
+    token = cfg.get("tushare_token", "")
+    return try_sources([
+        lambda c: _daily_akshare(c, days),
+        lambda c: _daily_tushare(c, days, token),
+    ], code)
 
 
 # ---------- 指数（基准） ----------
