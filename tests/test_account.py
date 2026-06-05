@@ -172,3 +172,55 @@ def test_init_records_initial_assets_anchor():
         assert e.state["initial_assets"] == 1000000.0
     finally:
         shutil.rmtree(tmp)
+
+
+def test_cli_sell_t1_block_outputs_clean_json():
+    """CLI 卖出遇 T+1 拦截：应输出 {"ok": false, "error": ...}，退出码 1，无 Traceback。"""
+    repo_root = os.path.join(os.path.dirname(__file__), "..")
+    tmp = tempfile.mkdtemp()
+    try:
+        workdir = os.path.join(tmp, "work")
+        shutil.copytree(repo_root, workdir, ignore=shutil.ignore_patterns(
+            "account", ".git", "__pycache__", "*.pyc", "tests"))
+
+        def run(*cli_args):
+            return subprocess.run(
+                [sys.executable, "scripts/account.py", *cli_args],
+                cwd=workdir, capture_output=True, text=True)
+
+        run("init", "--cash", "500000")
+        run("buy", "000001", "1000", "--price", "10.0", "--reason", "建仓")
+        # 当天卖出应被 T+1 拦截
+        result = run("sell", "000001", "1000", "--price", "10.5", "--reason", "测试拦截")
+        assert result.returncode == 1, "业务拦截应以非 0 退出"
+        assert "Traceback" not in result.stderr, "不应喷 Python 栈"
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert "T+1" in payload["error"]
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_cli_buy_insufficient_cash_outputs_clean_json():
+    """CLI 买入资金不足：应输出 {"ok": false, "error": ...}，退出码 1，无 Traceback。"""
+    repo_root = os.path.join(os.path.dirname(__file__), "..")
+    tmp = tempfile.mkdtemp()
+    try:
+        workdir = os.path.join(tmp, "work")
+        shutil.copytree(repo_root, workdir, ignore=shutil.ignore_patterns(
+            "account", ".git", "__pycache__", "*.pyc", "tests"))
+
+        def run(*cli_args):
+            return subprocess.run(
+                [sys.executable, "scripts/account.py", *cli_args],
+                cwd=workdir, capture_output=True, text=True)
+
+        run("init", "--cash", "1000")
+        result = run("buy", "600519", "100", "--price", "1700.0", "--reason", "超额")
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert "资金不足" in payload["error"]
+    finally:
+        shutil.rmtree(tmp)

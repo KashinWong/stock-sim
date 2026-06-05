@@ -169,10 +169,18 @@ def main():
         e.settle()
         print(json.dumps({"ok": True, "msg": "T+1 已解冻"}, ensure_ascii=False))
     elif args.cmd == "buy":
-        r = e.buy(args.code, args.qty, args.price, reason=args.reason)
+        try:
+            r = e.buy(args.code, args.qty, args.price, reason=args.reason)
+        except TradeError as ex:
+            print(json.dumps({"ok": False, "error": str(ex)}, ensure_ascii=False))
+            sys.exit(1)
         print(json.dumps({"ok": True, "cost": r}, ensure_ascii=False))
     elif args.cmd == "sell":
-        r = e.sell(args.code, args.qty, args.price, reason=args.reason)
+        try:
+            r = e.sell(args.code, args.qty, args.price, reason=args.reason)
+        except TradeError as ex:
+            print(json.dumps({"ok": False, "error": str(ex)}, ensure_ascii=False))
+            sys.exit(1)
         print(json.dumps({"ok": True, "proceeds": r}, ensure_ascii=False))
     elif args.cmd == "mark":
         try:
