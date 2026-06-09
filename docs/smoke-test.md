@@ -39,6 +39,7 @@ python3 scripts/account.py show
 
 ```bash
 python3 scripts/quote.py realtime 600519   # 期望返回 price/source
+python3 scripts/quote.py daily 600519 --days 5  # 期望返回日线 bars（腾讯兜底）
 python3 scripts/quote.py index 000300      # 期望返回基准点位
 python3 scripts/quote.py board             # 期望列出行业板块（选股候选池来源）
 python3 scripts/quote.py board 白酒        # 期望列出该板块成分股代码
@@ -46,8 +47,9 @@ python3 scripts/quote.py board 白酒        # 期望列出该板块成分股代
 
 本机观察结果：
 
-- **realtime 600519**：akshare 首先尝试失败（可能超时或不可用），自动 fallback 到新浪源，成功返回 `"price": 1268.0, "source": "sina"`。三源兜底链路验证通过。
-- **index 000300**：仅支持 akshare 一个数据源（无 sina 指数兜底），本机未安装 akshare，报 `QuoteError: 所有行情源失败：_index_akshare: No module named 'akshare'`。属预期行为——证明兜底耗尽正确报错。**注意：如需 index 命令可用，需安装 `akshare`。**
+- **realtime 600519**：akshare 未装自动 fallback 到新浪源，成功返回 `"price": 1272.86, "source": "sina"`。兜底链路验证通过。
+- **daily 600519**：akshare/tushare 未装自动 fallback 到腾讯 HTTP 源，返回完整前复权日线（升序含当日），`"source": "tencent"`。纯 requests 即可拉，无需装 akshare。
+- **index 000300**：akshare 未装自动 fallback 到新浪指数源，返回 `"close": 4816.92, "source": "sina"`。兜底链路验证通过。
 - **board（板块成分）**：选股候选池来源，仅 akshare 单源（无兜底）。akshare 不可用时返回 `{"error":..., "hint": "...可由 agent 凭知识列出候选代码"}`，由 agent 降级处理，不阻断交易主链路。
 
 ## 4. 端到端（场景 A）

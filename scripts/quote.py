@@ -1,5 +1,8 @@
-"""三源兜底行情 CLI：realtime / daily / index。
-源优先级：akshare -> tushare -> 新浪 HTTP。任一成功即返回。"""
+"""多源兜底行情 CLI：realtime / daily / index / board。
+realtime: akshare -> tushare -> 新浪 HTTP。
+daily: akshare -> tushare -> 腾讯 HTTP（纯 requests，无依赖也能拉）。
+index: akshare -> 新浪 HTTP。board: 仅 akshare 单源（失败可降级）。
+任一成功即返回。"""
 import sys, os, json, argparse
 
 
@@ -121,11 +124,45 @@ def _daily_tushare(code, days, token):
     return {"code": code, "source": "tushare", "bars": bars}
 
 
+def _daily_tencent(code, days):
+    """腾讯日线 HTTP 兜底（前复权，纯 requests）。返回升序、含当日。
+    字段顺序：[日期, 开, 收, 高, 低, 量]。"""
+    import requests
+    secid = ("sh" if code.startswith("6") else "sz") + code
+    url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    try:
+        resp = requests.get(url, params={"param": "%s,day,,,%d,qfq" % (secid, days)},
+                            timeout=10)
+        d = resp.json()
+    except Exception:
+        return None
+    node = d.get("data", {}).get(secid)
+    if not node:
+        return None
+    arr = node.get("qfqday") or node.get("day")
+    if not arr:
+        return None
+    bars = []
+    for row in arr:
+        # row = [日期, 开, 收, 高, 低, 量]
+        try:
+            bars.append({
+                "date": row[0], "open": float(row[1]), "close": float(row[2]),
+                "high": float(row[3]), "low": float(row[4]), "volume": float(row[5]),
+            })
+        except (ValueError, IndexError):
+            continue
+    if not bars:
+        return None
+    return {"code": code, "source": "tencent", "bars": bars}
+
+
 def get_daily(code, days, cfg):
     token = cfg.get("tushare_token", "")
     return try_sources([
         lambda c: _daily_akshare(c, days),
         lambda c: _daily_tushare(c, days, token),
+        lambda c: _daily_tencent(c, days),
     ], code)
 
 

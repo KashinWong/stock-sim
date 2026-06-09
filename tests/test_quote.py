@@ -200,3 +200,44 @@ def test_board_all_sources_fail_raises(monkeypatch):
         assert False, "应抛 QuoteError"
     except q.QuoteError:
         pass
+
+
+def test_daily_tencent_parses_fields(monkeypatch):
+    """腾讯日线 [日期,开,收,高,低,量] 应正确映射到 bar 字段，升序保留。"""
+    payload = {"code": 0, "data": {"sh600519": {"qfqday": [
+        ["2026-06-04", "1278.99", "1268.00", "1288.99", "1266.69", "33506"],
+        ["2026-06-05", "1278.00", "1272.86", "1283.00", "1267.74", "31304"],
+    ]}}}
+    fake_resp = types.SimpleNamespace(json=lambda: payload)
+    fake_requests = types.SimpleNamespace(get=lambda *a, **k: fake_resp)
+    monkeypatch.setitem(sys.modules, "requests", fake_requests)
+    result = q._daily_tencent("600519", 5)
+    assert result["source"] == "tencent"
+    assert len(result["bars"]) == 2
+    b0 = result["bars"][0]
+    assert b0["date"] == "2026-06-04"
+    assert b0["open"] == 1278.99 and b0["close"] == 1268.00
+    assert b0["high"] == 1288.99 and b0["low"] == 1266.69
+    assert b0["volume"] == 33506.0
+    assert result["bars"][1]["close"] == 1272.86  # 升序：当日在后
+
+
+def test_daily_tencent_sh_sz_prefix(monkeypatch):
+    """6 开头 -> sh 前缀，其余 -> sz。"""
+    captured = {}
+    def fake_get(url, params=None, timeout=None):
+        captured["param"] = params["param"]
+        return types.SimpleNamespace(json=lambda: {"data": {}})
+    monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(get=fake_get))
+    q._daily_tencent("600519", 5)
+    assert captured["param"].startswith("sh600519,")
+    q._daily_tencent("000001", 5)
+    assert captured["param"].startswith("sz000001,")
+
+
+def test_daily_tencent_returns_none_on_empty(monkeypatch):
+    """无数据节点时返回 None（交由 try_sources 视为失败）。"""
+    fake_resp = types.SimpleNamespace(json=lambda: {"code": 0, "data": {}})
+    monkeypatch.setitem(sys.modules, "requests",
+                        types.SimpleNamespace(get=lambda *a, **k: fake_resp))
+    assert q._daily_tencent("600519", 5) is None
