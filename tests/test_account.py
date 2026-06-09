@@ -65,6 +65,54 @@ def test_settle_unfreezes_position():
         shutil.rmtree(tmp)
 
 
+def test_settle_same_day_does_not_unfreeze_today_buy():
+    """T+0 防护：当天买入后，同日多次 settle 都不得解冻当天仓（盘中多次巡盘场景）。"""
+    tmp = tempfile.mkdtemp()
+    try:
+        e = make_engine(tmp)
+        e.init(initial_cash=1000000, date="2026-06-09")
+        e.settle(date="2026-06-09")  # 首次巡盘
+        e.buy("600519", qty=100, price=1700.0, date="2026-06-09", reason="盘中建仓")
+        e.settle(date="2026-06-09")  # 后续巡盘再次 settle
+        assert e.state["positions"]["600519"]["available"] == 0
+        try:
+            e.sell("600519", qty=100, price=1750.0, date="2026-06-09", reason="盘中止盈")
+            assert False, "当天买入当天卖出应被 T+1 拦截（T+0 违规）"
+        except acc.TradeError:
+            pass
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_settle_next_day_unfreezes_prior_buy():
+    """昨日买入，今日 settle 后应可卖。"""
+    tmp = tempfile.mkdtemp()
+    try:
+        e = make_engine(tmp)
+        e.init(initial_cash=1000000, date="2026-06-08")
+        e.buy("600519", qty=100, price=1700.0, date="2026-06-08", reason="昨日建仓")
+        e.settle(date="2026-06-09")
+        assert e.state["positions"]["600519"]["available"] == 100
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_settle_partial_thaw_mixed_dates():
+    """同一账户既有昨日仓又有当天仓：settle 只解冻昨日仓，当天仓保持冻结。"""
+    tmp = tempfile.mkdtemp()
+    try:
+        e = make_engine(tmp)
+        e.init(initial_cash=1000000, date="2026-06-08")
+        e.buy("600519", qty=100, price=1700.0, date="2026-06-08", reason="昨日")
+        e.settle(date="2026-06-09")  # 解冻昨日茅台
+        e.buy("000001", qty=100, price=11.0, date="2026-06-09", reason="今日")
+        e.settle(date="2026-06-09")  # 当天盘中再 settle
+        assert e.state["positions"]["600519"]["available"] == 100  # 昨日仓可卖
+        assert e.state["positions"]["000001"]["available"] == 0     # 当天仓仍冻结
+    finally:
+        shutil.rmtree(tmp)
+
+
 def test_sell_rejects_when_not_settled():
     tmp = tempfile.mkdtemp()
     try:

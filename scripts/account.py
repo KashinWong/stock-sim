@@ -70,9 +70,11 @@ class Account:
             new_qty = pos["qty"] + qty
             pos["cost"] = round((pos["cost"] * pos["qty"] + c["total_cost"]) / new_qty, 4)
             pos["qty"] = new_qty
+            pos["bought_date"] = date
         else:
             self.state["positions"][code] = {
-                "qty": qty, "available": 0, "cost": round(c["total_cost"] / qty, 4)
+                "qty": qty, "available": 0, "cost": round(c["total_cost"] / qty, 4),
+                "bought_date": date,
             }
         self._save()
         self._append_trade({
@@ -107,8 +109,10 @@ class Account:
         return r
 
     def settle(self, date=None):
+        date = date or _today()
         for pos in self.state["positions"].values():
-            pos["available"] = pos["qty"]
+            if pos.get("bought_date", "") < date:
+                pos["available"] = pos["qty"]
         self._save()
 
     def mark(self, prices):
