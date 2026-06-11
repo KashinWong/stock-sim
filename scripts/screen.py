@@ -206,7 +206,55 @@ def fetch_market_snapshot(cfg):
         return {"stocks": out, "source": "akshare", "warnings": warnings_out}
     except Exception as e:
         warnings_out.append("akshare spot: %s" % e)
+    # 末级兜底：curl_cffi 模拟浏览器指纹绕过东财反爬（与 quote.py board-cffi 同源）
+    try:
+        out = _snapshot_cffi()
+        if out:
+            return {"stocks": out, "source": "cffi", "warnings": warnings_out}
+        warnings_out.append("cffi snapshot: 空结果")
+    except Exception as e:
+        warnings_out.append("cffi snapshot: %s" % e)
     return {"stocks": [], "source": None, "warnings": warnings_out}
+
+
+def _snapshot_cffi():
+    """curl_cffi 绕东财反爬拉全市场 A 股快照（沪深京全板块）。
+    字段 f3涨跌幅/f8换手/f9PE动态/f10量比/f20总市值/f23PB。量比缺失返回 '-'，由 _f 转 None。"""
+    from curl_cffi import requests as cffi_req
+    out = []
+    page = 1
+    while page <= 60:  # 每页 200，最多约 12000 只，足够覆盖全市场
+        r = cffi_req.get(
+            "https://82.push2.eastmoney.com/api/qt/clist/get",
+            params={
+                "pn": str(page), "pz": "200", "po": "1", "np": "1",
+                "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+                "fltt": "2", "invt": "2", "fid": "f3",
+                "fs": "m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048",
+                "fields": "f12,f14,f3,f8,f10,f9,f23,f20",
+            },
+            impersonate="chrome136", timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json().get("data")
+        if not data:
+            break
+        diff = data.get("diff")
+        items = list(diff.values()) if isinstance(diff, dict) else (diff or [])
+        if not items:
+            break
+        for v in items:
+            out.append({
+                "code": str(v.get("f12")), "name": str(v.get("f14")),
+                "pct_change": _f(v.get("f3")), "volume_ratio": _f(v.get("f10")),
+                "turnover_rate": _f(v.get("f8")), "pe_ttm": _f(v.get("f9")),
+                "pb": _f(v.get("f23")), "total_mv": _f(v.get("f20")),
+            })
+        total = data.get("total") or 0
+        if page * 200 >= total:
+            break
+        page += 1
+    return out
 
 
 def fetch_lhb(date_str):
