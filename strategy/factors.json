@@ -1,0 +1,25 @@
+{
+  "version": "v3.0",
+  "updated_at": "2026-06-11",
+  "candidate_pool": {
+    "size": 100,
+    "strength_factors": ["pct_change", "volume_ratio", "turnover_rate"],
+    "exclude_st": true
+  },
+  "hard_filters": {
+    "min_roe": 0.0,
+    "max_pe_ttm": 150.0,
+    "require_positive_profit": true,
+    "exclude_st": true,
+    "on_missing": "exclude"
+  },
+  "score_weights": {
+    "trend": 0.20,
+    "momentum": 0.15,
+    "lhb_netbuy": 0.15,
+    "northbound": 0.10,
+    "rel_strength": 0.25,
+    "valuation": 0.15
+  },
+  "output": { "top_n": 10 }
+}
