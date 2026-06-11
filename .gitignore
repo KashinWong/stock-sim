@@ -17,3 +17,7 @@ config/config.json
 
 # 用户私有投资画像（由初始化对话生成）
 profile/profile.json
+
+# 多因子选股缓存（盘前生成，本地持久化，不入库）
+cache/market_snapshot.json
+cache/fundamental.json
